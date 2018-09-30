@@ -24,7 +24,7 @@ setwd("C:\\Users\\ctripodis\\Desktop\\AllFiles\\AUEB\\Thesis\\Input")
 ThesisData <-fread("databeverages09291.csv", sep=",",header = T,encoding="UTF-8")
 ThesisData<- ThesisData[ ,  .(Allqty=sum(Allqty),
                               Allrevenues=sum(Allrevenues)),
-                     by = .(Cust_Point_UniqueId,Cust_Description,Cust_RPS_Name
+                         by = .(Cust_Point_UniqueId,Cust_Description,Cust_RPS_Name
                             ,Loc_Ael_1,week,year,BrandID	,BrandName,Prod_CatID) ]
 
 Brands<-read.xlsx("Top20Brands.xlsx",sheet ="PickBrand", fill=TRUE )
@@ -60,6 +60,7 @@ n1<-length(x)*length(y)
 n2<- nrow(Week)
 
 Fitted<-data.frame()
+ForecastStartd<-data.frame()
 ForecastStart<-numeric()
 
 #Set up Goodnes of fit Functions
@@ -86,7 +87,6 @@ for ( j in x)
         t[is.na(t$Loc_Ael_1),"Loc_Ael_1"]=unique(Temp$Loc_Ael_1)
         t[is.na(t$BrandID),"BrandID"]=unique(Temp$BrandID)
         t[is.na(t$BrandName),"BrandName"]=unique(Temp$BrandName)
-        #t[is.na(t$Man_Name),"Man_Name"]=unique(Temp$Man_Name)
         t[is.na(t$Prod_CatID),"Prod_CatID"]=unique(Temp$Prod_CatID)
         t[is.na(t$Allqty),"Allqty"]=0
         t[is.na(t$Allrevenues),"Allrevenues"]=0
@@ -114,7 +114,9 @@ for ( j in x)
          
          #### Repeat Exercise in Test and Validation Dataset
 
-         Model1<-auto.arima(ts(ThesisDataTime[1:(length(ThesisDataTime)-5)],start=c(2016,31),frequency=52))
+         ForecasthAhaid<-5
+         
+         Model1<-auto.arima(ts(ThesisDataTime[1:(length(ThesisDataTime)-ForecasthAhaid)],start=c(2016,31),frequency=52))
          fcast_no_holdout <- forecast(Model1,h=5)
          
          plot(fcast_no_holdout, main=paste("Forecasting Customer =" ,j, "Brand =" , i))
@@ -122,23 +124,36 @@ for ( j in x)
         
           Forecast1<-as.numeric(fcast_no_holdout$mean)
           ForecastStart<-rbind(ForecastStart,Forecast1)
+          
+          ForecastStartd1<-data.frame(Fcast=as.numeric(fcast_no_holdout$mean),
+                                      Outlet=j,Brand=i)
+          
+          ForecastStartd1$ID <- seq.int(nrow(ForecastStartd1))+n2-ForecasthAhaid
+          ForecastStartd<-rbind(ForecastStartd,ForecastStartd1)
          
       }
   } 
 dev.off()
 
+#Merge Fitted With Forecast
+Fitted<-merge(x=Fitted,y=ForecastStartd,by=c("ID","Outlet","Brand") ,all=TRUE)
+Fitted[is.na(Fitted)] <- 0
+
 Fitted<- data.table(Fitted)
 FittedOutlet<- Fitted[ ,  .(Actual=sum(Actual),
-                            Fit=sum(Fit)),
+                            Fit=sum(Fit),
+                            Fcast=sum( Fcast)),
                                by = .(Outlet, ID) ]
 
 FittedBrand<- Fitted[ ,  .(Actual=sum(Actual),
-                            Fit=sum(Fit)),
+                            Fit=sum(Fit),
+                           Fcast=sum( Fcast)),
                        by = .(Brand, ID) ]
 
 
 FittedTotal<- Fitted[ ,  .(Actual=sum(Actual),
-                           Fit=sum(Fit)),
+                           Fit=sum(Fit),
+                           Fcast=sum( Fcast)),
                          by = .( ID) ]
 
 mypath1 <- file.path("C:","Users","ctripodis","Desktop","AllFiles","AUEB","Thesis","Output","Charts"
@@ -154,7 +169,8 @@ for ( j in x){
   Rmse<-my_RMSE(FittedOutletInd$Actual,FittedOutletInd$Fit)
   
   print(ggplot(FittedOutletInd,aes(x=ID))+geom_line(aes(y=Actual)) +
-  geom_line(aes(y=Fit,colour="red"))+ ggtitle(paste("Outlet = " , j 
+  geom_line(aes(y=Fit,colour="Fit"))+  geom_line(aes(y=Fcast,colour="Fcast"))+
+    ggtitle(paste("Outlet = " , j 
                                                     ,"Rsq = " ,Rsq ,"Rmse = ", Rmse)))
  
 }
@@ -173,7 +189,8 @@ for ( j in y){
   Rmse<-my_RMSE(FittedBrandInd$Actual,FittedBrandInd$Fit)
   
   print(ggplot(FittedBrandInd,aes(x=ID))+geom_line(aes(y=Actual)) +
-          geom_line(aes(y=Fit,colour="red"))+ ggtitle(paste("Brand = " , j 
+          geom_line(aes(y=Fit,colour="Fit"))+geom_line(aes(y=Fcast,colour="Fcast"))+
+          ggtitle(paste("Brand = " , j 
                                                             ,"Rsq = " ,Rsq ,"Rmse = ", Rmse)))
   
 }
@@ -182,20 +199,21 @@ dev.off()
 #Output Total Fit
 
 mypath1 <- file.path("C:","Users","ctripodis","Desktop","AllFiles","AUEB","Thesis","Output","Charts"
-                     ,paste("Total_Fit_Charts.pdf"))
+                     ,paste("Grant Total_Fit_Charts.pdf"))
 pdf(file=mypath1)
 
   Rsq<-R2(FittedTotal$Actual,FittedTotal$Fit)
   Rmse<-my_RMSE(FittedTotal$Actual,FittedTotal$Fit)
   
   ggplot(FittedTotal,aes(x=ID))+geom_line(aes(y=Actual)) +
-  geom_line(aes(y=Fit,colour="red"))+ ggtitle(paste("Total Outlets Brandds Rsq=" ,Rsq ,"Rmse = ", Rmse))
+  geom_line(aes(y=Fit,colour="Fit"))+ geom_line(aes(y=Fcast,colour="Fcast"))+
+    ggtitle(paste("Grant Total Rsq=" ,Rsq ,"Rmse = ", Rmse))
 
 dev.off()
 
 
 write.csv(Fitted,"C:\\Users\\ctripodis\\Desktop\\AllFiles\\AUEB\\Thesis\\Output\\Files\\Fitted.csv",row.names = FALSE)
-write.csv(ForecastStart,"C:\\Users\\ctripodis\\Desktop\\AllFiles\\AUEB\\Thesis\\Output\\Files\\Forecast.csv",row.names = FALSE)
+write.csv(ForecastStartd,"C:\\Users\\ctripodis\\Desktop\\AllFiles\\AUEB\\Thesis\\Output\\Files\\ForecastStartd.csv",row.names = FALSE)
 
 #Calculate totals Level 1 Leve2
 
