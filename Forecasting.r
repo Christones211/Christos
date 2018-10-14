@@ -107,7 +107,7 @@ for ( j in x)
         t[is.na(t$BrandName),"BrandName"]=unique(Temp$BrandName)
         t[is.na(t$Prod_CatID),"Prod_CatID"]=unique(Temp$Prod_CatID)
         #t[is.na(t$Allqty),"Allqty"]=0
-        t[is.na(t$Metric),Metric]=0
+        t[is.na(t$Metric),"Metric"]=0
         
         print(paste("Customer =" ,j, "Brand =" , i))
         ThesisDataTime<-ts(t[,Metric],start=c(2016,FirstWeek),frequency=52)
@@ -279,7 +279,7 @@ write.csv(ParametersModel, ExportPath ,row.names = FALSE)
 
 
 
-Temp<-ThesisData[Cust_Point_UniqueId=="ip10028" & BrandName=="COCA COLA"& (week > FirstWeek-1 | year>2016),] 
+Temp<-ThesisData[Cust_Point_UniqueId=="ip10028" & BrandName=="TUBORG"& (week > FirstWeek-1 | year>2016),] 
 
 if(nrow(Temp) ==0){next}
 t<- merge(x=Week, y=Temp, by.x=c("Year","Week"),by.y=c("year","week")   , all.x=TRUE)
